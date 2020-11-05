@@ -1,6 +1,5 @@
 # Import libraries
 from flask import Flask, request, jsonify
-app = Flask(__name__)
 import urllib.request
 import json
 import getpass
@@ -16,6 +15,7 @@ import requests
 from urllib.request import urlopen
 from EinsteinVision.EinsteinVision import EinsteinVisionService
 from simple_salesforce import Salesforce
+from simple_salesforce import format_soql
 
 # Import processor class
 # einstein = EinsteinProcessor.EinsteinProcessor()
@@ -30,7 +30,7 @@ orgId = '00D09000002XvHR'
 CLIENT_ID = '3MVG9SOw8KERNN0.JwiJmzWRWt.Hq1yiwY.3ABBqiBiHMkp89Zr2q4jPxeUJWQKmPeWwOitVn6uXD.fpdMrIx'
 CLIENT_SECRET = 'EF4FD969656264A3186FE0B118BEBD7EC909255126BA2C0B7B40EA8A1E91ADC2'
 API_VERSION = 'v49.0'
-model_id = 'P6EUXCCZUVJQSVZNPDZK54OE6Q'
+model_id = ''
 einstein_username = 'torbentiedemann@live.de'
 pem_file='einstein_platform.pem'
 EINSTEIN_VISION_URL = 'https://api.einstein.ai'
@@ -38,33 +38,37 @@ EINSTEIN_VISION_URL = 'https://api.einstein.ai'
 
 @app.route('/getmsg/', methods=['GET'])
 def respond():
-    # Retrieve the image string from url parameter
-    image = request.args.get("image", None)
+    # Retrieve the params from url
+    case_id = request.args.get("caseId", None)   
 
     # For debugging
-    print(f"got name {image}")
+    print(f"got Id {case_id}")
 
     response = {}
 
     # Check if user sent a name at all
-    if not image:
-        response["ERROR"] = "no image found, please send a image."
+    if not case_id:
+        response["ERROR"] = "no case_id found, please send a caseId."
     # Check if the user entered a number not a name
-    elif str(image).isdigit():
-        response["ERROR"] = "image can't be numeric."
-    # Now the user entered a valid name
+    elif str(case_id).isdigit():
+        response["ERROR"] = "case_id can't be numeric."
+    # Now the system entered a case_id
     else:
-        response["MESSAGE"] = f"Thank you for sending {image} to our awesome platform!!"
+        response["MESSAGE"] = f"Thank you for sending {case_id} to our awesome platform!!"
 
     # Return the response in json format
     return jsonify(response)
 
 @app.route('/post/', methods=['POST'])
 def post_something():
-    param = request.form.get('image')
-    print(param)
+    case_id = request.form.get('caseId')
+    # model_id = request.form.get('modelId')
+    # sobject = request.form.get('sObject')
+    # model_type = request.form.get('modelType')
+    # print(model_type)
+    # print(case_id)
     # You can add the test cases you made in the previous function, but in our case here you are just testing the POST functionality
-    if param:
+    if case_id:
         # Define function to obtain SF access token
         def login():    
             # create a new salesforce REST API OAuth request
@@ -101,14 +105,34 @@ def post_something():
         genius = EinsteinVisionService(email=einstein_username, pem_file=pem_file)
         genius.get_token()
 
-        # Get ContentVersion record
-        contentVersionId = (sf.query("SELECT Id FROM ContentVersion ORDER BY CreatedDate DESC LIMIT 1"))['records'][0]['Id']
+        # Get ModelId
+        sobject = 'Case' ## Change this in final release to accept var from callout
+        model_id = (sf.query(format_soql("SELECT EPS_Model_Id__c FROM EPS_Config__mdt WHERE SObject__c={cId} LIMIT 1", cId=sobject)))['records'][0]['EPS_Model_Id__c']
+        print(model_id)
 
         # Get Case record
-        caseId = (sf.query("SELECT Id FROM Case ORDER BY CreatedDate DESC LIMIT 1"))['records'][0]['Id']
+        case_id = sf.Case.get(case_id)['Id']
+        case_id
+        print(case_id)
+
+        # Get EmailMessage
+        email = sf.query(format_soql("SELECT Id, ThreadIdentifier FROM EmailMessage WHERE RelatedToId={var} ORDER BY CreatedDate ASC LIMIT 1", var=case_id))
+        email_thread = email['records'][0]['ThreadIdentifier']
+        email_id = email['records'][0]['Id']
+        print(email_thread)
+        print(email_id)
+
+        # Get ContentDocument
+        content_document = sf.query(format_soql("SELECT ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntityId={var} LIMIT 1", var=email_id))
+        content_document_id = content_document['records'][0]['ContentDocumentId']
+        print(content_document_id)
+
+        # Get ContentVersion
+        content_version_id = (sf.query(format_soql("SELECT Id FROM ContentVersion WHERE ContentDocumentId={var} LIMIT 1", var=content_document_id)))['records'][0]['Id']
+        print(content_version_id)
 
         # get VersionData from Content Version
-        url = instance_url+'/services/data/' + API_VERSION + '/sobjects/ContentVersion/' + contentVersionId + '/VersionData'
+        url = instance_url+'/services/data/' + API_VERSION + '/sobjects/ContentVersion/' + content_version_id + '/VersionData'
         headers = {'Authorization' : 'Bearer ' + access_token, 'X-PrettyPrint' : '1'}
         req = urllib.request.Request(url, None, headers)
         res = urllib.request.urlopen(req)
@@ -129,12 +153,13 @@ def post_something():
         for i in range(5):
             var_p = ((p['probabilities'])[i])['label']
             labels.append(var_p)
-        # print(labels)
-        # print(probabilities)
+        print(labels)
+        print(probabilities)
 
         # update Case
-        sf.Case.update(caseId,{'predicted_probability__c': probabilities[0], 'predicted_label__c': labels[0]})
-        top_label = labels[0]
+        if sobject == 'Case':
+            sf.Case.update(case_id,{'predicted_probability__c': probabilities[0], 'predicted_label__c': labels[0]})
+            top_label = labels[0]
 
         return jsonify({
             "Message": f"The car you are looking for is probably a Toyota {top_label}.",
@@ -143,13 +168,13 @@ def post_something():
         })
     else:
         return jsonify({
-            "ERROR": "no name found, please send a name."
+            "ERROR": "no Id found, please send an Id."
         })
 
 # A welcome message to test our server
 @app.route('/')
 def index():
-    return "<h1>Welcome to our aowsome platform. Try it out by sending an image!!</h1>"
+    return "<h1>Welcome to our aowsome platform. Try it out by sending an record!!</h1>"
 
 if __name__ == '__main__':
     # Threaded option to enable multiple instances for multiple user access support
