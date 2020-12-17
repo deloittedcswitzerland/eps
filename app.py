@@ -31,6 +31,7 @@ CLIENT_ID = '3MVG9SOw8KERNN0.JwiJmzWRWt.Hq1yiwY.3ABBqiBiHMkp89Zr2q4jPxeUJWQKmPeW
 CLIENT_SECRET = 'EF4FD969656264A3186FE0B118BEBD7EC909255126BA2C0B7B40EA8A1E91ADC2'
 API_VERSION = 'v49.0'
 model_id = ''
+intent_model_id = 'DPCPNJLBCHDKWISI3ULU4WKXCY'
 einstein_username = 'torbentiedemann@live.de'
 pem_file='einstein_platform.pem'
 EINSTEIN_VISION_URL = 'https://api.einstein.ai'
@@ -114,6 +115,10 @@ def post_something():
         case_id = sf.Case.get(case_id)['Id']
         case_id
         print(case_id)
+        
+        # Get Case Subject
+        case_subject = sf.Case.get(case_id)['Subject']
+        print(case_subject)
 
         # Get EmailMessage
         email = sf.query(format_soql("SELECT Id, ThreadIdentifier FROM EmailMessage WHERE RelatedToId={var} ORDER BY CreatedDate ASC LIMIT 1", var=case_id))
@@ -142,6 +147,10 @@ def post_something():
         # Get prediction for base64 string
         einstein_response = genius.get_b64_image_prediction(model_id=model_id, b64_encoded_string=base64_string)
         p = einstein_response.json()
+        
+        # Get prediction for Case Subject
+        einstein_response = genius.get_language_prediction_from_model(model_id=intent_model_id, document=case_subject)
+        p_intent = einstein_response.json()
 
         # Assign values for probabilities and labels to lists
         probabilities = []
@@ -155,10 +164,34 @@ def post_something():
             labels.append(var_p)
         print(labels)
         print(probabilities)
+        
+        # Assign values for intent probabilities and labels to lists
+        intent_probabilities = []
+        for i in range(3):
+            var_p = ((p['probabilities'])[i])['probability']
+            intent_probabilities.append(var_p)
+
+        intent_labels = []
+        for i in range(3):
+            var_p = ((p['probabilities'])[i])['label']
+            intent_abels.append(var_p)
+        print(intent_labels)
+        print(intent_probabilities)
 
         # update Case
         if sobject == 'Case':
             sf.Case.update(case_id,{'predicted_probability__c': probabilities[0], 'predicted_label__c': labels[0]})
+            top_label = labels[0]
+            # demo logic - replace after real intent model is built
+            compare = intent_probabilities[2]
+            new_car = intent_probabilities[1]
+            used_car = intent_probabilities[0]
+            if compare > 0.19:
+                sf.Case.update(case_id,{'predicted_intent_probability__c': intent_probabilities[2], 'predicted_intent__c': intent_labels[2]})
+            if new_car > 0.38:
+                sf.Case.update(case_id,{'predicted_intent_probability__c': intent_probabilities[1], 'predicted_intent__c': intent_labels[1]})
+            if used_car > 0.55:
+                sf.Case.update(case_id,{'predicted_intent_probability__c': intent_probabilities[0], 'predicted_intent__c': intent_labels[0]})
             top_label = labels[0]
 
         return jsonify({
