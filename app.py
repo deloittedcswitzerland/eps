@@ -168,13 +168,13 @@ def post_something():
         # Assign values for intent probabilities and labels to lists
         intent_probabilities = []
         for i in range(3):
-            var_p = ((p['probabilities'])[i])['probability']
-            intent_probabilities.append(var_p)
+            var_pi = ((p_intent['probabilities'])[i])['probability']
+            intent_probabilities.append(var_pi)
 
         intent_labels = []
         for i in range(3):
-            var_p = ((p['probabilities'])[i])['label']
-            intent_abels.append(var_p)
+            var_pi = ((p_intent['probabilities'])[i])['label']
+            intent_labels.append(var_pi)
         print(intent_labels)
         print(intent_probabilities)
 
