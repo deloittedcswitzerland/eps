@@ -180,9 +180,7 @@ def post_something():
 
         # update Case
         if sobject == 'Case':
-            sf.Case.update(case_id,{'predicted_probability__c': probabilities[0], 'predicted_label__c': labels[0]})
-            top_label = labels[0]
-            # demo logic - replace after real intent model is built
+            # demo logic start - replace after real intent model is built
             compare = intent_probabilities[2]
             new_car = intent_probabilities[1]
             used_car = intent_probabilities[0]
@@ -192,6 +190,9 @@ def post_something():
                 sf.Case.update(case_id,{'predicted_intent_probability__c': intent_probabilities[1], 'predicted_intent__c': intent_labels[1]})
             if used_car > 0.55:
                 sf.Case.update(case_id,{'predicted_intent_probability__c': intent_probabilities[0], 'predicted_intent__c': intent_labels[0]})
+            top_label = labels[0]
+            # demo logic end
+            sf.Case.update(case_id,{'predicted_probability__c': probabilities[0], 'predicted_label__c': labels[0]})
             top_label = labels[0]
 
         return jsonify({
