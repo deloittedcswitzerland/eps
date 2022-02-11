@@ -24,12 +24,12 @@ from simple_salesforce import format_soql
 app = Flask(__name__)
 
 # Set constants
-pw = 'Figeroa7b$'
-user = 'ttiedemann@ttiedemann-20201026.demo'
-orgId = '00D09000002XvHR'
-CLIENT_ID = '3MVG9SOw8KERNN0.JwiJmzWRWt.Hq1yiwY.3ABBqiBiHMkp89Zr2q4jPxeUJWQKmPeWwOitVn6uXD.fpdMrIx'
-CLIENT_SECRET = 'EF4FD969656264A3186FE0B118BEBD7EC909255126BA2C0B7B40EA8A1E91ADC2'
-API_VERSION = 'v49.0'
+pw = '<insert>'
+user = '<insert>'
+orgId = '<insert>'
+CLIENT_ID = '<insert>'
+CLIENT_SECRET = '<insert>'
+API_VERSION = 'v52.0'
 model_id = ''
 intent_model_id = 'DPCPNJLBCHDKWISI3ULU4WKXCY'
 einstein_username = 'torbentiedemann@live.de'
